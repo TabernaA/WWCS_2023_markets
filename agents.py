@@ -48,9 +48,27 @@ class Household(Agent):
 
         self.budget = budget
         self.initial_budget = budget
+        self.toy_mode = model.toy_mode
+        self.step_count = 0
 
     def step(self):
-       # print('I am ', self.unique_id, type(self))
+        self.step_count += 1
+        # print('I am ', self.unique_id, type(self))
+
+        if self.toy_mode:
+            firm = None
+            for firm in self.model.available_firms:
+                if (firm.unique_id % 2 == self.unique_id % 2) == self.step_count % 2:
+                    firm.production -= 1
+                    self.budget -= firm.price
+                    if not self.model.G.has_edge(self, firm):
+                        self.model.G.add_edge(self, firm)
+                        self.model.G[self][firm]['weight'] = 0
+                    self.model.G[self][firm]['weight'] += firm.price
+                    if firm.production <= 0:
+                        self.model.available_firms.remove(firm)
+            return 
+
 
         self.budget = self.initial_budget
    

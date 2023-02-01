@@ -11,8 +11,8 @@ class Market(Model):
 
     def __init__(self, F=50, H=300, firms_production=1200,
                     min_income = 0, max_income = 2, min_quality = 0, 
-                    max_quality = 1, decrease_price = 0.7, increase_price = 0.3, price_change = 0.01
-
+                    max_quality = 1, decrease_price = 0.7, increase_price = 0.3, price_change = 0.01,
+                    toy_mode=False
                  ):
         """Initialization of the CRAB model.
 
@@ -20,6 +20,12 @@ class Market(Model):
             F                  : Number of  firm agents
             H                   : Number of household agents
         """
+        self.toy_mode = toy_mode
+        if toy_mode:
+            F = 2
+            H = 2
+            firms_production = 1
+
         # Number of agents for initialization
         self.init_n_firms = F
         self.init_n_hh = H
