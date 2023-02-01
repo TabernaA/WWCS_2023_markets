@@ -43,7 +43,9 @@ class Market(Model):
         for j in range(self.init_n_hh):
 
             income =  np.random.uniform(min_income, max_income)
-            a = Household(self, income)
+            price_pref = np.random.uniform(0, 1)
+            quality_pref = np.random.uniform(0, 1)
+            a = Household(self, income, price_pref, quality_pref)
             self.schedule.add(a)
 
             # Add the agent to a random grid cell
@@ -107,10 +109,12 @@ class Market(Model):
         if self.time > 0:
             prev = nx.adjacency_matrix(self.graphs[-1]).A
             curr = nx.adjacency_matrix(self.G).A
+            #print(prev, curr)
             change = sum(sum(abs(curr - prev)))
             maximum = sum(sum(prev)) + sum(sum(curr))
-            self.diff = change/maximum if maximum > 0 else 0
+            self.diff = change/maximum #if maximum > 0 else 0
         self.graphs.append(self.G.copy())
+    
         
         list_firms = [agent for agent in self.schedule.agents if type(agent) is Firm]
         #list_hh = [agent for agent in self.schedule.agents if type(agent) is Household]
@@ -125,6 +129,7 @@ class Market(Model):
             self.HHI = sum(revenue)
         else:
             self.HHI = 0
+        self.time += 1
         
 
 

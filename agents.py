@@ -1,4 +1,5 @@
 from mesa import Agent
+import numpy as np
 
 class Firm(Agent): 
 
@@ -18,6 +19,7 @@ class Firm(Agent):
         self.quantity_sold = 0
 
     def step(self):
+        self.quality = min(1, max(0, self.quality + np.random.uniform(-0.025, 0.025)))
        # print('I am ', self.unique_id, type(self) )
         # compute the revenue
         self.revenue = self.price * (self.initial_production - self.production)
@@ -42,7 +44,7 @@ class Household(Agent):
 
     """
 
-    def __init__(self, model, budget):
+    def __init__(self, model, budget, price_pref = 0.5, quality_pref = 0.5):
 
         super().__init__(model.next_id(), model)
 
@@ -50,6 +52,8 @@ class Household(Agent):
         self.initial_budget = budget
         self.toy_mode = model.toy_mode
         self.step_count = 0
+        self.price_pref = price_pref
+        self.quality_pref = quality_pref
 
     def step(self):
         self.step_count += 1
@@ -76,12 +80,15 @@ class Household(Agent):
 
             #if len(self.model.available_firms) > 0:
                 # print( " I am after thelen(self.model.available_firms))
-            quality = 0
+            preference = 0
             buyer = None
             for firm in self.model.available_firms:
-                if (firm.quality > quality) and (firm.price <= self.budget):
-                    buyer = firm
-                    quality = firm.quality
+                if firm.price <= self.budget:
+                    utility = self.price_pref * firm.price + self.quality_pref * firm.quality
+                    if utility > preference:
+                        preference = utility
+                        buyer = firm
+                    
 
             #print(buyer)
             if buyer !=  None:
