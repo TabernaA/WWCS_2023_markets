@@ -1,6 +1,6 @@
 from mesa import Model
 from mesa.time import RandomActivationByType, BaseScheduler
-from mesa.space import NetworkGrid
+from mesa.space import  MultiGrid
 from mesa.datacollection import DataCollector
 from agents import Firm, Household
 import networkx as nx
@@ -24,10 +24,14 @@ class Market(Model):
         self.init_n_firms = F
         self.init_n_hh = H
         self.current_id = 0
-        self.graphs = []
-
+        self.graphs = [0]
+        self.HHI = 0
+        self.diff = 0
+        self.time = 0
         # Set up the  order
         self.schedule = BaseScheduler(self)
+        self.grid = MultiGrid(500, 500, True)
+
 
         # create households
         for j in range(self.init_n_hh):
@@ -35,6 +39,11 @@ class Market(Model):
             income =  np.random.uniform(min_income, max_income)
             a = Household(self, income)
             self.schedule.add(a)
+
+            # Add the agent to a random grid cell
+            x = self.random.randrange(self.grid.width)
+            y = self.random.randrange(self.grid.height)
+            self.grid.place_agent(a, (x, y))
 
         # Create firms
         for i in range(self.init_n_firms):
@@ -45,8 +54,17 @@ class Market(Model):
                      increase_price = increase_price, price_change = price_change  )
             self.schedule.add(a)
 
+            # Add the agent to a random grid cell
+            x = self.random.randrange(self.grid.width)
+            y = self.random.randrange(self.grid.height)
+            self.grid.place_agent(a, (x, y))
+
         # Datacollector
         self.datacollector = DataCollector(
+
+            model_reporters= {"HHI": lambda m: m.HHI,
+                            "Distance": lambda m: m.diff 
+                            },
 
 
             agent_reporters={"Type": lambda a: type(a).__name__,
@@ -77,7 +95,36 @@ class Market(Model):
         self.datacollector.collect(self)
         self.schedule.step()
         # store the graph in a list
+         
+
+
+        if self.time > 0:
+            prev = nx.adjacency_matrix(self.graphs[-1]).A
+            curr = nx.adjacency_matrix(self.G).A
+            change = sum(sum(abs(curr - prev)))
+            maximum = sum(sum(prev)) + sum(sum(curr))
+            self.diff = change/maximum if maximum > 0 else 0
         self.graphs.append(self.G.copy())
+        
+        list_firms = [agent for agent in self.schedule.agents if type(agent) is Firm]
+        #list_hh = [agent for agent in self.schedule.agents if type(agent) is Household]
+        # iterate thorugh a dictionary of agents in aa fast way
+        tot_revenues = [firm.revenue for firm in list_firms]
+        # normalize the revenue to have a value between 0 and 1
+        if sum( tot_revenues) > 0:
+            revenue = [x / sum( tot_revenues) for x in  tot_revenues]
+            # square the revenue
+            revenue = [x ** 2 for x in revenue]
+            # sum the revenue
+            self.HHI = sum(revenue)
+        else:
+            self.HHI = 0
+        
+
+
+
+      
+
         
         # plot the graph
        # nx.draw(self.G, with_labels=True)

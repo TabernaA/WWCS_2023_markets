@@ -11,7 +11,7 @@ class Firm(Agent):
         self.price = price
         self.production = production
         self.initial_production = production
-        self.revenue = 0
+        self.revenue = 1
         self.price_change = price_change
         self.increase_price = increase_price
         self.decrease_price = decrease_price
