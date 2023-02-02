@@ -15,13 +15,13 @@ class Firm(Agent):
         self.production = production
         self.initial_production = production
         self.revenue = 1
-        self.net_worth = 0
+        self.net_worth = 3000
         self.price_change = price_change
         self.increase_price = increase_price
         self.decrease_price = decrease_price
         self.quantity_sold = 0
         self.inventories = 0
-        self.cost = cost
+        self.cost = cost * 0.8
 
     def innovate(self, in_budget, quality, Z=0.3, a=3, b=3, x_low=-0.025, x_up=0.025):
     
@@ -55,8 +55,15 @@ class Firm(Agent):
         # how is the cost decided (budget)
 
         rd_budget = 0.05 * self.revenue
+
+        if self.model.time > 500:
+            innovation_quality = self.quality
+            self.price_change = 0.9 * self.price_change
+        else:
         
-        innovation_quality = self.innovate(rd_budget, self.quality)
+            innovation_quality = self.innovate(rd_budget, self.quality)
+
+        
 
         self.quality = max(innovation_quality, self.quality)
 
@@ -67,9 +74,12 @@ class Firm(Agent):
         production_sold =  self.initial_production - self.production
         production_left = self.initial_production - production_sold
         self.inventories += production_left
+        self.inventories = min(self.inventories, self.initial_production * 0.5)
         self.revenue = self.price *  production_sold
         profits = self.revenue - self.cost
         self.net_worth += profits
+
+
 
         # increase the price if  the production is 0.3 of the initial production
         if self.inventories < self.increase_price * self.initial_production:
@@ -82,8 +92,10 @@ class Firm(Agent):
         self.quantity_sold = (self.initial_production - self.production)
         self.production = self.initial_production   #+ self.inventories
 
-        if  self.model.time > 1000 and self.net_worth <  -2 * self.revenue:
-            self.model.bnkrupt_firms.append(self)
+        if  self.model.time > 100 and self.net_worth <  -2 * self.revenue:
+            if self.model.time < 500:
+            
+                self.model.bnkrupt_firms.append(self)
      
 
 
@@ -101,7 +113,7 @@ class Household(Agent):
     """
 
     def __init__(self, model, budget, price_pref = 0.5, quality_pref = 0.5,
-                prob_entrepreneur = 0.01):
+                prob_entrepreneur = 0.001):
 
         super().__init__(model.next_id(), model)
 
@@ -112,11 +124,14 @@ class Household(Agent):
         self.price_pref = price_pref
         self.quality_pref = quality_pref
         self.prob_entrepreneur = prob_entrepreneur
+        self.buyer = None
 
     def step(self):
 
-        if np.random.random() < self.prob_entrepreneur:
-            self.model.new_firms += 1
+        if self.model.time < 500:
+
+            if np.random.random() < self.prob_entrepreneur:
+                self.model.new_firms += 1
 
             
         self.step_count += 1
@@ -141,20 +156,34 @@ class Household(Agent):
    
         while self.budget > 0:
 
-            #if len(self.model.available_firms) > 0:
-                # print( " I am after thelen(self.model.available_firms))
             preference = 0
             buyer = None
             for firm in self.model.available_firms:
                 if firm.price <= self.budget:
-                    utility = self.price_pref * firm.price + self.quality_pref * firm.quality
-                    if utility > preference:
-                        preference = utility
+                    utility_new_buyer = self.price_pref * firm.price + self.quality_pref * firm.quality
+                    if utility_new_buyer > preference:
+                        preference = utility_new_buyer
                         buyer = firm
                     
-
+            
             #print(buyer)
+         
             if buyer !=  None:
+
+                # if I can choose from two buyers
+                if self.buyer != None and self.buyer != buyer and self.buyer <= self.budget:
+                    # if the old buyer is still available
+                    if self.buyer in self.model.available_firms:
+                    # utility of other buyer is now:
+                        utility_current_buyer = self.price_pref * self.buyer.price + self.quality_pref * self.buyer.quality
+                        # has the new buyer a higher utility?
+                        if utility_new_buyer > utility_current_buyer:
+                            # probability of switching to the other buyer
+                            prob = 1 - np.exp(1  * (utility_current_buyer - utility_new_buyer) / utility_current_buyer)
+                            if np.random.random() < prob:
+                                self.buyer = buyer
+                                buyer = self.buyer
+
                 if buyer.production > 0:
                     buyer.production -= 1 
                 else:
