@@ -96,20 +96,24 @@ class Market(Model):
                              }
         )
     
+    def refresh_graph(self, graph_a, additions):
+        """Ensures that the nodes (and the adjacency lists) are in the right order"""
+        out = nx.Graph()
+        nodes = list(graph_a.nodes()) + list(additions)
+        nodes = sorted(nodes)
+        out.add_nodes_from(nodes)
+        out.add_edges_from(graph_a.edges())
+        return out
+
     def compute_change(self, graph_a, graph_b):
-        # Make the graphs the same size
         additions = graph_b.nodes() - graph_a.nodes() 
         deletions = graph_a.nodes() - graph_b.nodes() 
-        graph_a = graph_a.copy()
-        graph_b = graph_b.copy()
-        graph_a.add_nodes_from(additions)
-        graph_b.add_nodes_from(deletions)
-        # Create the adjacency matrices
+        graph_a = self.refresh_graph(graph_a, additions)
+        graph_b = self.refresh_graph(graph_b, deletions)    
         prev = nx.adjacency_matrix(graph_a).A
         curr = nx.adjacency_matrix(graph_b).A
-        # Divide by two because the matrix has two entries per pair of nodes (it is undirected)
-        change = sum(sum(abs(curr - prev))) / 2
-        maximum = sum(sum(prev)) / 2
+        change = sum(sum(abs(curr - prev)))
+        maximum = sum(sum(prev))
         return change / maximum
 
     def step(self):
