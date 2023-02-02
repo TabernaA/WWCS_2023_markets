@@ -96,7 +96,7 @@ class Market(Model):
                              }
         )
     
-    def compute_change(graph_a, graph_b):
+    def compute_change(self, graph_a, graph_b):
         # Make the graphs the same size
         additions = graph_b.nodes() - graph_a.nodes() 
         deletions = graph_a.nodes() - graph_b.nodes() 
