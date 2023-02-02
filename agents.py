@@ -55,8 +55,15 @@ class Firm(Agent):
         # how is the cost decided (budget)
 
         rd_budget = 0.05 * self.revenue
+
+        if self.model.time > 500:
+            innovation_quality = self.quality
+            self.price_change = 0.9 * self.price_change
+        else:
         
-        innovation_quality = self.innovate(rd_budget, self.quality)
+            innovation_quality = self.innovate(rd_budget, self.quality)
+
+        
 
         self.quality = max(innovation_quality, self.quality)
 
@@ -72,6 +79,8 @@ class Firm(Agent):
         profits = self.revenue - self.cost
         self.net_worth += profits
 
+
+
         # increase the price if  the production is 0.3 of the initial production
         if self.inventories < self.increase_price * self.initial_production:
             self.price = self.price * (1 + self.price_change)
@@ -84,7 +93,9 @@ class Firm(Agent):
         self.production = self.initial_production   #+ self.inventories
 
         if  self.model.time > 100 and self.net_worth <  -2 * self.revenue:
-            self.model.bnkrupt_firms.append(self)
+            if self.model.time < 500:
+            
+                self.model.bnkrupt_firms.append(self)
      
 
 
@@ -117,8 +128,10 @@ class Household(Agent):
 
     def step(self):
 
-        if np.random.random() < self.prob_entrepreneur:
-            self.model.new_firms += 1
+        if self.model.time < 500:
+
+            if np.random.random() < self.prob_entrepreneur:
+                self.model.new_firms += 1
 
             
         self.step_count += 1
@@ -154,6 +167,7 @@ class Household(Agent):
                     
             
             #print(buyer)
+         
             if buyer !=  None:
 
                 # if I can choose from two buyers
