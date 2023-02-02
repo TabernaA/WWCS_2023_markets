@@ -1,5 +1,5 @@
 from mesa import Model
-from mesa.time import RandomActivationByType, BaseScheduler
+from mesa.time import  BaseScheduler
 from mesa.space import  MultiGrid
 from mesa.datacollection import DataCollector
 from agents import Firm, Household
@@ -9,10 +9,10 @@ import numpy as np
 class Market(Model):
     """Model class for the Market model. """
 
-    def __init__(self, F=50, H=300, firms_production=1200,
-                    min_income = 0, max_income = 2, min_quality = 0, 
-                    max_quality = 1, decrease_price = 0.7, increase_price = 0.3, price_change = 0.01,
-                    toy_mode=False
+    def __init__(self, F=50, H=500, firms_production=12,
+                    min_income = 0, max_income = 10, min_quality = 0, 
+                    max_quality = 1, increase_price = 0.1, price_change = 0.01,
+                    seed = 0, time_collusion = 500, toy_mode=False
                  ):
         """Initialization of the CRAB model.
 
@@ -25,6 +25,10 @@ class Market(Model):
             F = 2
             H = 2
             firms_production = 1
+        # regulate stochasticity
+        np.random.seed(int(seed))
+        self.reset_randomizer(seed)
+        self.running = True
 
         # Number of agents for initialization
         self.init_n_firms = F
@@ -34,15 +38,23 @@ class Market(Model):
         self.HHI = 0
         self.diff = 0
         self.time = 0
+
+        self.revenues = [0]
+        
+        self.total_revenue = 0
+        self.average_price = 1
+        self.average_quality = 0.5
+        self.number_of_firms = F
+        self.time_collusion = time_collusion
         # Set up the  order
         self.schedule = BaseScheduler(self)
         self.grid = MultiGrid(500, 500, True)
         self.new_firms = 0 
         self.firms_production = firms_production
         self.price_change = price_change
-        self.decrease_price = decrease_price
         self.increase_price = increase_price
         self.bnkrupt_firms = []
+
 
 
         self.per_firm_cost = H * ((max_income - min_income) * 0.5) / F 
@@ -68,8 +80,9 @@ class Market(Model):
             quality = np.random.uniform(min_quality, max_quality)
             price = 1
             a = Firm(self, quality, price,firms_production,
-                    self.per_firm_cost, decrease_price = decrease_price,
-                     increase_price = increase_price, price_change = price_change  )
+                    self.per_firm_cost,
+                     increase_price = increase_price,
+                    price_change = price_change  )
             self.schedule.add(a)
 
             # Add the agent to a random grid cell
@@ -80,11 +93,14 @@ class Market(Model):
         # Datacollector
         self.datacollector = DataCollector(
 
-            model_reporters= {"HHI": lambda m: m.HHI,
-                            "Distance": lambda m: m.diff 
+            model_reporters= {"HHI": HHI,
+                            "Distance": diff,
+                            "Reveneue": total_revenue,
+                            "Average_price": average_price,
+                            "Average_quality": average_quality,
+                            "Number_of_firms": number_of_firms,
+
                             },
-
-
             agent_reporters={"Type": lambda a: type(a).__name__,
                              "Quality": lambda a: a.quality if type(a) is Firm else None,
                              "Revenue": lambda a: a.revenue if type(a) is Firm else None,
@@ -94,9 +110,11 @@ class Market(Model):
                             "Initial_budget": lambda a: a.initial_budget if type(a) is Household else None,
                              "budget": lambda a: a.budget if type(a) is Household else None
                              }
+
+
         )
     
-    def compute_change(graph_a, graph_b):
+    def compute_change(self, graph_a, graph_b):
         # Make the graphs the same size
         additions = graph_b.nodes() - graph_a.nodes() 
         deletions = graph_a.nodes() - graph_b.nodes() 
@@ -119,8 +137,9 @@ class Market(Model):
         ''''''
         # delete firms that are bankrupt
         for i in range(len(self.bnkrupt_firms)):
-            self.schedule.remove(self.bnkrupt_firms[i])
-            self.grid.remove_agent(self.bnkrupt_firms[i])
+            if len(self.schedule.agents) > 5:
+                self.schedule.remove(self.bnkrupt_firms[i])
+                self.grid.remove_agent(self.bnkrupt_firms[i])
         self.bnkrupt_firms = []
         # add new firms
         self.available_firms = [
@@ -133,7 +152,7 @@ class Market(Model):
                 quality = new_firm.quality
                 price = new_firm.price
                 a = Firm(self, quality, price,self.firms_production,
-                        self.per_firm_cost,self.decrease_price,
+                        self.per_firm_cost,
                         self.increase_price, self.price_change  )
                 self.schedule.add(a)
                 a.net_worth = 3500
@@ -169,11 +188,16 @@ class Market(Model):
 
             self.diff =  self.compute_change(self.graphs[-1], self.G)#if maximum > 0 else 0
         self.graphs.append(self.G.copy())
+
+        self.average_price = np.mean([agent.price for agent in self.schedule.agents if type(agent) is Firm])
+        self.average_quality = np.mean([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
+        self.number_firms = len([agent for agent in self.schedule.agents if type(agent) is Firm])
     
 
     
         
         tot_revenues = [agent.revenue for agent in self.schedule.agents if type(agent) is Firm]
+        self.revenues = tot_revenues
         #list_hh = [agent for agent in self.schedule.agents if type(agent) is Household]
         # iterate thorugh a dictionary of agents in aa fast way
         # normalize the revenue to have a value between 0 and 1
@@ -186,7 +210,20 @@ class Market(Model):
         else:
             self.HHI = 0
         self.time += 1
-        
+    
+def average_price(model):
+    return model.average_price
+def average_quality(model):
+    return model.average_quality
+def number_of_firms(model):
+    return model.number_of_firms
+def HHI(model):
+    return model.HHI
+def diff(model):
+    return model.diff
+def total_revenue(model):
+    return sum(model.revenues)
+
 
 
 
@@ -195,3 +232,14 @@ class Market(Model):
         
         # plot the graph
        # nx.draw(self.G, with_labels=True)
+'''
+            agent_reporters={"Type": lambda a: type(a).__name__,
+                             "Quality": lambda a: a.quality if type(a) is Firm else None,
+                             "Revenue": lambda a: a.revenue if type(a) is Firm else None,
+                             "Quantity_sold": lambda a: a.quantity_sold if type(a) is Firm else None,
+                             "Price": lambda a: a.price if type(a) is Firm else None,
+                            "Net_worth": lambda a: a.net_worth if type(a) is Firm else None,
+                            "Initial_budget": lambda a: a.initial_budget if type(a) is Household else None,
+                             "budget": lambda a: a.budget if type(a) is Household else None
+                             }
+'''

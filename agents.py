@@ -6,7 +6,7 @@ from scipy.stats import beta
 class Firm(Agent): 
 
     def __init__(self, model, quality, price, production, cost ,
-                 increase_price = 0.3, decrease_price = 0.7, price_change = 0.01):
+                 increase_price = 0.3, price_change = 0.01):
         super().__init__(model.next_id(), model)
 
         # Compur().__init__(model.next_id(), model)
@@ -18,10 +18,10 @@ class Firm(Agent):
         self.net_worth = 3000
         self.price_change = price_change
         self.increase_price = increase_price
-        self.decrease_price = decrease_price
         self.quantity_sold = 0
         self.inventories = 0
         self.cost = cost * 0.8
+        self.rd_share = 0.05
 
     def innovate(self, in_budget, quality, Z=0.3, a=3, b=3, x_low=-0.025, x_up=0.025):
     
@@ -54,14 +54,14 @@ class Firm(Agent):
         # how is the quality of new entrants decided?
         # how is the cost decided (budget)
 
-        rd_budget = 0.05 * self.revenue
+        rd_budget = self.rd_share * self.revenue
 
-        if self.model.time > 500:
-            innovation_quality = self.quality
-            self.price_change = 0.9 * self.price_change
-        else:
+        if self.model.time > self.model.time_collusion:
+            self.rd_share = 0.975 * self.rd_share
+            self.price_change = 0.975 * self.price_change
         
-            innovation_quality = self.innovate(rd_budget, self.quality)
+        
+        innovation_quality = self.innovate(rd_budget, self.quality)
 
         
 
@@ -79,6 +79,10 @@ class Firm(Agent):
         profits = self.revenue - self.cost
         self.net_worth += profits
 
+        if self.model.time > self.model.time_collusion and self.model.time <  self.model.time_collusion + 10:
+            self.price = self.price * (1 + self.price_change/10)
+
+
 
 
         # increase the price if  the production is 0.3 of the initial production
@@ -93,8 +97,7 @@ class Firm(Agent):
         self.production = self.initial_production   #+ self.inventories
 
         if  self.model.time > 100 and self.net_worth <  -2 * self.revenue:
-            if self.model.time < 500:
-            
+            if self.model.time < self.model.time_collusion:
                 self.model.bnkrupt_firms.append(self)
      
 
@@ -128,7 +131,7 @@ class Household(Agent):
 
     def step(self):
 
-        if self.model.time < 500:
+        if self.model.time < self.model.time_collusion:
 
             if np.random.random() < self.prob_entrepreneur:
                 self.model.new_firms += 1
