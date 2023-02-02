@@ -95,34 +95,22 @@ class Market(Model):
                              "budget": lambda a: a.budget if type(a) is Household else None
                              }
         )
-    def compute_change(self, graph_a, graph_b):
+    
+    def compute_change(graph_a, graph_b):
+        # Make the graphs the same size
         additions = graph_b.nodes() - graph_a.nodes() 
         deletions = graph_a.nodes() - graph_b.nodes() 
         graph_a = graph_a.copy()
         graph_b = graph_b.copy()
-        change = 0
-        changes = set()
-        # Compute the change for the deletions (n.b. additions are handled automatically)
-        for n in deletions:
-            for e in graph_a[n]:
-                if (n,e) not in changes and (e,n) not in changes:
-                    change += graph_a[n][e]['weight']
-                    changes.add((n,e))
-        # Add the missing nodes and remove the extra ones from graph a, so it has the same shape as graph b.
-        graph_a.remove_nodes_from(deletions)
         graph_a.add_nodes_from(additions)
-        
+        graph_b.add_nodes_from(deletions)
+        # Create the adjacency matrices
         prev = nx.adjacency_matrix(graph_a).A
         curr = nx.adjacency_matrix(graph_b).A
         # Divide by two because the matrix has two entries per pair of nodes (it is undirected)
-        change += sum(sum(abs(curr - prev))) / 2
-        maximum = sum(sum(prev))
+        change = sum(sum(abs(curr - prev))) / 2
+        maximum = sum(sum(prev)) / 2
         return change / maximum
-
-
-
-
-
 
     def step(self):
         """
