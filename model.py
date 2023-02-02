@@ -37,6 +37,15 @@ class Market(Model):
         # Set up the  order
         self.schedule = BaseScheduler(self)
         self.grid = MultiGrid(500, 500, True)
+        self.new_firms = 0 
+        self.firms_production = firms_production
+        self.price_change = price_change
+        self.decrease_price = decrease_price
+        self.increase_price = increase_price
+        self.bnkrupt_firms = []
+
+
+        self.per_firm_cost = H * ((max_income - min_income) * 0.5) / F 
 
 
         # create households
@@ -58,7 +67,8 @@ class Market(Model):
 
             quality = np.random.uniform(min_quality, max_quality)
             price = 1
-            a = Firm(self, quality, price, production=firms_production, decrease_price = decrease_price,
+            a = Firm(self, quality, price,firms_production,
+                    self.per_firm_cost, decrease_price = decrease_price,
                      increase_price = increase_price, price_change = price_change  )
             self.schedule.add(a)
 
@@ -80,6 +90,7 @@ class Market(Model):
                              "Revenue": lambda a: a.revenue if type(a) is Firm else None,
                              "Quantity_sold": lambda a: a.quantity_sold if type(a) is Firm else None,
                              "Price": lambda a: a.price if type(a) is Firm else None,
+                            "Net_worth": lambda a: a.net_worth if type(a) is Firm else None,
                             "Initial_budget": lambda a: a.initial_budget if type(a) is Household else None,
                              "budget": lambda a: a.budget if type(a) is Household else None
                              }
@@ -91,7 +102,37 @@ class Market(Model):
         """
         Run one step of the model.
         """
+        ''''''
+        for i in range(len(self.bnkrupt_firms)):
+
+            firm_updating = self.bnkrupt_firms[i]
+
+            # quality is randomly chosen among available firms quality
+            #firm_updating.quality =  np.random.choice([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
+            # quality is the best quality of firms in the market
+            firm_updating.quality = np.max([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
+            # quality is average quality of firms in the market
+            #quality = np.mean([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
+            firm_updating.price = np.mean([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
+            firm_updating.net_worth = 0
+            firm_updating.revenue = 0
+            firm_updating.quantity_sold = 0
+
+
+            '''
+            a = Firm(self, quality, price,self.firms_production,
+                    self.per_firm_cost,self.decrease_price,
+                    self.increase_price, self.price_change  )
+            self.schedule.add(a)
+
+            # Add the agent to a random grid cell
+            x = self.random.randrange(self.grid.width)
+            y = self.random.randrange(self.grid.height)
+            self.grid.place_agent(a, (x, y))
+            '''
         # create a list with firms object
+        self.bnkrupt_firms = []
+        self.new_firms = 0
         self.available_firms = [
             agent for agent in self.schedule.agents if type(agent) is Firm]
         # create a networkx graph where the nodes are the firms and households
@@ -116,10 +157,9 @@ class Market(Model):
         self.graphs.append(self.G.copy())
     
         
-        list_firms = [agent for agent in self.schedule.agents if type(agent) is Firm]
+        tot_revenues = [agent.revenue for agent in self.schedule.agents if type(agent) is Firm]
         #list_hh = [agent for agent in self.schedule.agents if type(agent) is Household]
         # iterate thorugh a dictionary of agents in aa fast way
-        tot_revenues = [firm.revenue for firm in list_firms]
         # normalize the revenue to have a value between 0 and 1
         if sum( tot_revenues) > 0:
             revenue = [x / sum( tot_revenues) for x in  tot_revenues]
