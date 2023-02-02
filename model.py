@@ -95,6 +95,32 @@ class Market(Model):
                              "budget": lambda a: a.budget if type(a) is Household else None
                              }
         )
+    def compute_change(self, graph_a, graph_b):
+        additions = graph_b.nodes() - graph_a.nodes() 
+        deletions = graph_a.nodes() - graph_b.nodes() 
+        graph_a = graph_a.copy()
+        graph_b = graph_b.copy()
+        change = 0
+        changes = set()
+        # Compute the change for the deletions (n.b. additions are handled automatically)
+        for n in deletions:
+            for e in graph_a[n]:
+                if (n,e) not in changes and (e,n) not in changes:
+                    change += graph_a[n][e]['weight']
+                    changes.add((n,e))
+        # Add the missing nodes and remove the extra ones from graph a, so it has the same shape as graph b.
+        graph_a.remove_nodes_from(deletions)
+        graph_a.add_nodes_from(additions)
+        
+        prev = nx.adjacency_matrix(graph_a).A
+        curr = nx.adjacency_matrix(graph_b).A
+        # Divide by two because the matrix has two entries per pair of nodes (it is undirected)
+        change += sum(sum(abs(curr - prev))) / 2
+        maximum = sum(sum(prev))
+        return change / maximum
+
+
+
 
 
 
@@ -103,38 +129,42 @@ class Market(Model):
         Run one step of the model.
         """
         ''''''
+        # delete firms that are bankrupt
         for i in range(len(self.bnkrupt_firms)):
-
-            firm_updating = self.bnkrupt_firms[i]
-
-            # quality is randomly chosen among available firms quality
-            #firm_updating.quality =  np.random.choice([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
-            # quality is the best quality of firms in the market
-            firm_updating.quality = np.max([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
-            # quality is average quality of firms in the market
-            #quality = np.mean([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
-            firm_updating.price = np.mean([agent.quality for agent in self.schedule.agents if type(agent) is Firm])
-            firm_updating.net_worth = 0
-            firm_updating.revenue = 0
-            firm_updating.quantity_sold = 0
-
-
-            '''
-            a = Firm(self, quality, price,self.firms_production,
-                    self.per_firm_cost,self.decrease_price,
-                    self.increase_price, self.price_change  )
-            self.schedule.add(a)
-
-            # Add the agent to a random grid cell
-            x = self.random.randrange(self.grid.width)
-            y = self.random.randrange(self.grid.height)
-            self.grid.place_agent(a, (x, y))
-            '''
-        # create a list with firms object
+            self.schedule.remove(self.bnkrupt_firms[i])
+            self.grid.remove_agent(self.bnkrupt_firms[i])
         self.bnkrupt_firms = []
-        self.new_firms = 0
+        # add new firms
         self.available_firms = [
             agent for agent in self.schedule.agents if type(agent) is Firm]
+
+        if self.time > 100:
+
+            for i in range(self.new_firms):
+                new_firm =  np.random.choice(self.available_firms)
+                quality = new_firm.quality
+                price = new_firm.price
+                a = Firm(self, quality, price,self.firms_production,
+                        self.per_firm_cost,self.decrease_price,
+                        self.increase_price, self.price_change  )
+                self.schedule.add(a)
+                a.net_worth = 3500
+                a.revenue = 0
+                a.quantity_sold = 0
+                a.inventory = 0
+
+                # Add the agent to a random grid cell
+                x = self.random.randrange(self.grid.width)
+                y = self.random.randrange(self.grid.height)
+                self.grid.place_agent(a, (x, y))
+        
+
+        # create a list with firms object
+        self.available_firms = [
+            agent for agent in self.schedule.agents if type(agent) is Firm]
+      
+        self.new_firms = 0
+
         # create a networkx graph where the nodes are the firms and households
 
         self.G = nx.Graph()
@@ -148,13 +178,11 @@ class Market(Model):
 
 
         if self.time > 0:
-            prev = nx.adjacency_matrix(self.graphs[-1]).A
-            curr = nx.adjacency_matrix(self.G).A
-            #print(prev, curr)
-            change = sum(sum(abs(curr - prev)))
-            maximum = sum(sum(prev)) + sum(sum(curr))
-            self.diff = change/maximum #if maximum > 0 else 0
+
+            self.diff =  self.compute_change(self.graphs[-1], self.G)#if maximum > 0 else 0
         self.graphs.append(self.G.copy())
+    
+
     
         
         tot_revenues = [agent.revenue for agent in self.schedule.agents if type(agent) is Firm]
