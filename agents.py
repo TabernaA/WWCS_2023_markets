@@ -48,6 +48,9 @@ class Firm(Agent):
             in_quality = 0
         #print(in_productivity)
         return in_quality
+    
+    def __gt__(self, other):
+        return str(self) > str(other)
 
     def step(self):
 
@@ -128,6 +131,9 @@ class Household(Agent):
         self.quality_pref = quality_pref
         self.prob_entrepreneur = prob_entrepreneur
         self.buyer = None
+        
+    def __gt__(self, other):
+        return str(self) > str(other)
 
     def step(self):
 

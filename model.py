@@ -114,20 +114,16 @@ class Market(Model):
 
         )
     
-    def compute_change(self, graph_a, graph_b):
+    def compute_change(graph_a, graph_b):
         # Make the graphs the same size
         additions = graph_b.nodes() - graph_a.nodes() 
         deletions = graph_a.nodes() - graph_b.nodes() 
-        graph_a = graph_a.copy()
-        graph_b = graph_b.copy()
-        graph_a.add_nodes_from(additions)
-        graph_b.add_nodes_from(deletions)
-        # Create the adjacency matrices
+        graph_a = self.refresh_graph(graph_a, additions)
+        graph_b = self.refresh_graph(graph_b, deletions)    
         prev = nx.adjacency_matrix(graph_a).A
         curr = nx.adjacency_matrix(graph_b).A
-        # Divide by two because the matrix has two entries per pair of nodes (it is undirected)
-        change = sum(sum(abs(curr - prev))) / 2
-        maximum = sum(sum(prev)) / 2
+        change = sum(sum(abs(curr - prev)))
+        maximum = sum(sum(prev))
         return change / maximum
 
     def step(self):
